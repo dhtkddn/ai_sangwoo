@@ -1,0 +1,39 @@
+name: Fetch JSONPlaceholder
+
+on:
+  # 5분마다 스케줄 실행
+  schedule:
+    - cron: '*/5 * * * *'
+  # 워크플로우 정의 파일(.yml)이 변경될 때도 실행
+  push:
+    paths:
+      - '.github/workflows/fetch_todo.yml'
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Calculate minute+1
+        id: calc
+        run: |
+          # 현재 분을 가져와서 +1, 60분일 땐 0으로 순환
+          m=$(date +'%M')
+          next=$(( (10#$m + 1) % 60 ))
+          echo "NEXT_MIN=$next" >> $GITHUB_ENV
+
+      - name: Call API and save to test.json
+        run: |
+          curl -s "https://jsonplaceholder.typicode.com/todos/${{ env.NEXT_MIN }}" \
+            > test.json
+
+      - name: Commit & push test.json
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add test.json
+          git commit -m "Update test.json (minute ${{ env.NEXT_MIN }})" || echo "No changes"
+          git push
